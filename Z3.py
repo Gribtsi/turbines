@@ -20,6 +20,7 @@ def get_r_list(d_avg, d_root, count):
 
 def calculate_degree_of_reaction(degree_of_reaction_avg, r,r_avg):
     return (degree_of_reaction_avg-1)*(1/((r/r_avg)**1.7)+1/(degree_of_reaction_avg-1))
+
 def calculate_alpha1(alpha_1_avg, r,r_avg):
     return (r/r_avg)**2*alpha_1_avg
 
@@ -89,7 +90,7 @@ fi = 0.97
 psi = 0.935
 rotation_speed = 50
 
-k = 5
+k = 10
 
 tringle_list = [get_triangle_pair(p_0, t_0, p_2, i*2,
                                   calculate_degree_of_reaction(degree_of_reaction_avg, i,d_avg/2),
