@@ -37,10 +37,31 @@ print(efficiency_hp)
 point_k_water = gas(P=pk * unit, x=0)
 point_feed_water = gas(P=p_feed_water * unit, T=to_kelvin(t_feed_water))
 
+
+numenator_without = point_k.T * (_point_0.s - point_k_water.s)
+denumenator_without = (point_0.h - point_kt.h) + (point_0.h - point_k_water.h)
+without_part = 1 - (numenator_without / denumenator_without)
+
+numenator_infinity = point_k.T * (_point_0.s - point_feed_water.s)
+denumenator_infinity = (point_0.h - point_kt.h) + (point_0.h - point_feed_water.h)
+infinity_part = 1 - (numenator_infinity / denumenator_infinity)
+
+ksi_infinity = 1 - (without_part / infinity_part)
+print(ksi_infinity)
+
+
+
+coeff = (point_feed_water.T - point_k.T) / (to_kelvin(374.2) - point_k.T)
+print(coeff)
+
+ksi = 0.9 * ksi_infinity
+
+
+
 eff_num = hp_heat_drop
 eff_denum = hp_heat_drop + (point_k.h - point_k_water.h)
 
-efficiency = (eff_num / eff_denum) * 1
+efficiency = (eff_num / eff_denum) * (1 / (1 - ksi))
 print(efficiency)
 
 estimated_heat_drop = efficiency * ((point_0.h - point_feed_water.h))
