@@ -1,0 +1,67 @@
+from enum import Enum
+
+class FuelGas:
+    
+    class NaturalGas(Enum):
+        urengoyskoye = [98.40,0.10,0,0,0,1.20,0.30,0,0,0]
+        yamburgskoye = [98.60,0.10,0,0,0,1.20,0.10,0,0,0]
+    
+    homologues_count = 4
+    
+    def __init__(self, deposit_type, temperature, alpha):
+        
+        self.temp = temperature
+        self.alpha = alpha
+        
+        self.__gas_type = deposit_type
+        self.__composition = self.NaturalGas[deposit_type].value
+        self.__lower_calorific_value = 358.2*self.__composition[0]+637.4*self.__composition[1]+860.05*self.__composition[2]+1185.8*self.__composition[3]
+        self.__stoichiometric_air_flow = 0.0476*sum([self.__composition[i]*(3*i+4)/2 for i in range(self.homologues_count)])
+        self.__v0_n2 = 0.079*self.__stoichiometric_air_flow+0.01*self.__composition[5]
+        self.__v0_ro2 = 0.01*(self.__composition[6] + sum([self.__composition[i]*(i+1) for i in range(self.homologues_count)]))
+        self.__v0_h2o = 0.01*(sum([self.__composition[i]*(i+2) for i in range(self.homologues_count)])+1.61*self.__stoichiometric_air_flow)
+    
+    
+    @property
+    def __c_co2(self):
+        return 4.1868*(4.5784*10**-11*self.temp**3-1.51719*self.temp**2+2.50113*10**-4*self.temp+0.382325)
+    @property
+    def __c_n2(self):
+        return 4.1868*(-2.24553*10**-11*self.temp**3+4.85082*self.temp**2-2.90598*10**-4*self.temp+0.309241)
+    @property
+    def __c_h2o(self):
+        return 4.1868*(-2.10956*10**-11*self.temp**3+4.9732*self.temp**2+2.60629*10**-4*self.temp+0.356691)
+    @property
+    def __c_air(self):
+        return 4.1868*(-2.1717*10**-11*self.temp**3+4.19344*self.temp**2+8.00891*10**-4*self.temp+0.315027)
+    
+    @property
+    def v_h2o(self):
+        return self.__v0_h2o + 0.0161*(self.alpha-1)*self.__stoichiometric_air_flow
+    @property
+    def v_g(self):
+        return self.__v0_ro2+self.__v0_n2+self.v_h2o()+(self.alpha-1)*self.__stoichiometric_air_flow
+    @property
+    def h0_g(self):
+        return (self.__v0_ro2*self.__c_co2+self.__v0_n2*self.__c_n2+self.__v0_h2o*self.__c_h2o)*self.temp
+    @property
+    def h0_air(self):
+        return self.__stoichiometric_air_flow*self.__c_air*self.temp
+    @property
+    def h0_g_relative_to_burned_fuel(self):
+        return self.h0_g+(self.alpha-1)*self.h0_air
+    
+
+    class PerVeRT:
+        R = 8.31446261815324 #Joule/(mole*K)
+        @staticmethod
+        def t_by_pv(pressure, volume):
+            return pressure*volume/R
+        @staticmethod
+        def v_by_pt(pressure, temperature):
+            return R*temperature/pressure
+        @staticmethod
+        def p_by_vt(volume, temperature):
+            return R*temperature/volume
+        
+        
