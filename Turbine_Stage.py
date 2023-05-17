@@ -84,17 +84,13 @@ class Turbine_Stage:
             self.speed_coeff = math.sqrt(1 - self.ksi)
             self.speed_angle_out = math.degrees(math.asin(math.sin(math.radians(self.speed_angle_e)) * self.mu / self.speed_coeff))
 
-        def check_for_errors(self):
-            found = False
+        def check_for_errors(self) -> str:
+            res = ''
             if max([self.speed_coeff, self.bounds.get_speed_coeff_ver(self.l)]) / min([self.speed_coeff, self.bounds.get_speed_coeff_ver(self.l)]) - 1 > 0.01:
-                print('Speed coefficient varies from verification result.')
-                print(self.speed_coeff, self.bounds.get_speed_coeff_ver(self.l))
-                found = True
+                res += f'\nSpeed coefficient varies from verification result: \n ver: {self.bounds.get_speed_coeff_ver(self.l)}, self: {self.speed_coeff}'
             if not self.bounds.params_in_bounds(self.speed_angle_e, self.speed_angle_in, self.M) == '':
-                print('Some params are out of bounds; namely' + self.bounds.params_in_bounds(self.speed_angle_e, self.speed_angle_in, self.M))
-                found = True
-            if not found:
-                print('No mismatches found.')
+                res += ('\nSome params are out of bounds; namely' + self.bounds.params_in_bounds(self.speed_angle_e, self.speed_angle_in, self.M))
+            return res
 
         
     '''
@@ -157,7 +153,7 @@ class Turbine_Stage:
         self.betta2 = self.working_array.speed_angle_out
         self.delta_H_r = self.w2t ** 2 / 2 * (1 - self.working_array.speed_coeff ** 2) / kJ
     
-    def calc_efficiency(self):
+    def calc_efficiency(self) -> str:
         
         self.delta_H_vs = self.c2 ** 2 / 2 / kJ
         self.E0 = self.H0 - self.xi_vs * self.delta_H_vs
@@ -165,10 +161,9 @@ class Turbine_Stage:
         self.etta_ol = (self.E0 - self.delta_H_c - self.delta_H_r - (1 - self.xi_vs) * self.delta_H_vs) / self.E0
         self.etta_ol_ver = self.u * (self.c1 * math.cos(math.radians(self.alpha1)) + self.c2 * math.cos(math.radians(self.alpha2))) / self.E0 / kJ
         if math.fabs(self.etta_ol / self.etta_ol_ver - 1) > 0.01:
-            print('Efficiencys are too different')
-            print(self.etta_ol, self.etta_ol_ver)
+            res =  f'Efficiencys are too different: \nself:{self.etta_ol}, ver:{self.etta_ol_ver}'
         else:
-            print('Efficiencys calculated correctly')
+            res =  ''
         
         self.cf = math.sqrt(2 * self.H0 * kJ)
         self.u_cf = self.u / self.cf
@@ -188,10 +183,74 @@ class Turbine_Stage:
         self.H_i = self.E0 - self.delta_H_c - self.delta_H_partial - self.delta_H_r - self.delta_H_tr - self.delta_H_vs * (1 - self.xi_vs) - self.delta_H_y
         self.etta_oi = self.H_i / self.E0
         self.N_i = self.G * self.H_i * kJ
+
+        return res
         
     def calc_durability(self):
         self.sigma_twist = (self.G * self.H0 * self.etta_ol * self.working_array.l) / (2 * self.u * self.working_array.z * self.working_array.bounds.W_min * self.e_opt)
         self.b2_new = self.working_array.bounds.b * math.sqrt(self.sigma_twist / self.sigma_twist_max)
         self.bb = 2 * math.pi * self.n
         self.sigma_stretch = 0.5 * 7800 * self.bb ** 2 * self.d * self.working_array.l
+        
+    def build_triangles(self):
+        w1 = vector2(-self.w1 * math.cos(math.radians(self.betta1)),
+                     -self.w1 * math.sin(math.radians(self.betta1)))
+        c1 = vector2(-self.c1 * math.cos(math.radians(self.alpha1)),
+                     -self.c1 * math.sin(math.radians(self.alpha1)))
+        w2 = vector2(self.w2 * math.cos(math.radians(self.betta2)),
+                     -self.w2 * math.sin(math.radians(self.betta2)))
+        c2 = vector2(self.c2 * math.cos(math.radians(self.alpha2)),
+                     -self.c2 * math.sin(math.radians(self.alpha2)))
+
+        aux_vectors = [
+            vector2(c1.x1,
+                    c1.y1 - 40,
+                    c1.x1 + self.c1 * math.cos(math.radians(self.alpha1)) +
+                    self.c2 * math.cos(math.radians(self.alpha2)),
+                    c1.y1 - 40),
+            vector2(c1.x1, c1.y1, c1.x1, c1.y1 - 40),
+            vector2(c2.x1, c2.y1, c2.x1, c1.y1 - 40),
+            vector2(w1.x1,
+                    w1.y1 - 20,
+                    w1.x1 + self.w1 * math.cos(math.radians(self.betta1)) +
+                    self.w2 * math.cos(math.radians(self.betta2)),
+                    w1.y1 - 20),
+            vector2(w1.x1, w1.y1, w1.x1, w1.y1 - 20),
+            vector2(w2.x1, w2.y1, w2.x1, w1.y1 - 20)
+        ]
+
+        plt.style.use('_mpl-gallery')
+
+        fig, ax = plt.subplots(figsize=(20, 10.8), layout='constrained')
+
+        ax.plot([w1.x0, w1.x1], [w1.y0, w1.y1], linewidth=2, color="blue")
+        ax.plot([w2.x0, w2.x1], [w2.y0, w2.y1], linewidth=2, color="blue")
+        ax.plot([c1.x0, c1.x1], [c1.y0, c1.y1], linewidth=2, color="red")
+        ax.plot([c2.x0, c2.x1], [c2.y0, c2.y1], linewidth=2, color="red")
+
+        ax.plot([w1.x1, c1.x1], [w1.y1, c1.y1], linewidth=2, color="black")
+        ax.plot([w2.x1, c2.x1], [w2.y1, c2.y1], linewidth=2, color="black")
+        for i in aux_vectors:
+            ax.plot([i.x0, i.x1], [i.y0, i.y1], linewidth=1, color="grey")
+
+        ax.text(aux_vectors[0].median_point.x1, aux_vectors[0].median_point.y1 + 5, f'c1 cos(a1) + c2 cos(a2)', fontsize=14)
+        ax.text(aux_vectors[3].median_point.x1, aux_vectors[3].median_point.y1 + 5, f'w1 cos(b1) + w2 cos(b2)', fontsize=14)
+        ax.text(c1.x1 + 100, c1.y1 + 5, f'u', fontsize=14)
+        ax.text(c2.x1 + 100, c2.y1 + 5, f'u', fontsize=14)
+        ax.text(c1.median_point.x1, c1.median_point.y1 + 5, f'c1', fontsize=14)
+        ax.text(c2.median_point.x1, c2.median_point.y1 + 5, f'c2', fontsize=14)
+        ax.text(w1.median_point.x1, w1.median_point.y1 + 5, f'w1', fontsize=14)
+        ax.text(w2.median_point.x1, w2.median_point.y1 + 5, f'w2', fontsize=14)
+
+        ax.set_xlabel(r"x, $\frac{м}{с}$", fontsize=14)
+        ax.set_ylabel(r"y, $\frac{м}{с}$", fontsize=14)
+        ax.set_title("Треугольники скоростей", fontsize=18)
+        ""
+        # make data
+
+        # plot
+        ax.set(xlim=(-400, 250), xticks=numpy.arange(-400, 250, 50),
+               ylim=(-150, 50), yticks=numpy.arange(-150, 50, 50))
+
+        plt.show()
 
