@@ -50,7 +50,7 @@ class Turbine_Stage:
         
         class Standart_Arrays(Enum):
             c_90_15_a = Array_Data([13, 17], [70, 120], [0.72, 0.87], [0, 0.85], 51.5 * mm, 0.45 * cm ** 3, [0.982, -0.005], [0.98, -0.008])
-            r_30_21_a = Array_Data([19, 24], [25, 40], [0.58, 0.68], [0, 0.90], 25.6 * mm, 0.234 * cm ** 3, [0.965, -0.01], [0.96, -0.014])
+            r_30_21_a = Array_Data([19, 24], [25, 40], [0.58, 0.68], [0, 0.90], 25.6 * mm, 2.34 * cm ** 3, [0.965, -0.01], [0.96, -0.014])
         
         def __init__(self, profile_name, topt_choosen, e_opt, d, l, M):
             self.bounds = Turbine_Stage.Array.Standart_Arrays[profile_name].value
@@ -183,14 +183,12 @@ class Turbine_Stage:
         self.H_i = self.E0 - self.delta_H_c - self.delta_H_partial - self.delta_H_r - self.delta_H_tr - self.delta_H_vs * (1 - self.xi_vs) - self.delta_H_y
         self.etta_oi = self.H_i / self.E0
         self.N_i = self.G * self.H_i * kJ
-
-        return res
-        
-    def calc_durability(self):
         self.sigma_twist = (self.G * self.H0 * self.etta_ol * self.working_array.l) / (2 * self.u * self.working_array.z * self.working_array.bounds.W_min * self.e_opt)
         self.b2_new = self.working_array.bounds.b * math.sqrt(self.sigma_twist / self.sigma_twist_max)
         self.bb = 2 * math.pi * self.n
-        self.sigma_stretch = 0.5 * 7800 * self.bb ** 2 * self.d * self.working_array.l
+        self.sigma_stretch = 5 * self.bb ** 2 * self.d * self.working_array.l
+
+        return res
         
     def build_triangles(self):
         w1 = vector2(-self.w1 * math.cos(math.radians(self.betta1)),
