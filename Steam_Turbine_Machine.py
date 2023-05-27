@@ -256,3 +256,184 @@ def plot_hs_diagram(ax: plt.Axes, points: List[IAPWS97]) -> None:
             ax.legend()
             ax.grid()
             legend_without_duplicate_labels(ax)
+def plot_distribution(valuesY, ax_name, label, valuesX = range(1, 10)):
+    fig, ax = plt.subplots(1, 1, figsize=(15,5))
+    ax.plot(valuesX, valuesY, marker='o')
+    ax.set_xlabel(label)
+    ax.set_ylabel(ax_name)
+    ax.grid()
+
+
+class Stress:
+    def __init__(self, avg_d, l, density, G0, H0, eta_oi, n, e, z2, Wmin, r1, r2, E, d, d_0, L, L_rotor, rotor_mass, m,
+                 F, bettay, I, B, delta, step, psi, sigma_2):
+        self.avg_d = avg_d
+        self.l = l
+        self.density = density
+        self.G0 = G0
+        self.H0 = H0
+        self.eta_oi = eta_oi * 100
+        self.n = n
+        self.e = e
+        self.z2 = z2
+        self.Wmin = Wmin
+        self.r1 = r1
+        self.r2 = r2
+        self.d = d
+        self.E = E
+        self.d_0 = d_0
+        self.L = L
+        self.L_rotor = L_rotor
+        self.rotor_mass = rotor_mass
+        self.u = math.pi * self.avg_d * self.n
+        self.angular_speed = 2 * math.pi * self.n
+        self.sigma_1 = 0
+        self.F = F
+        self.bettay = bettay
+        self.I = I
+        self.B = B
+        self.delta = delta
+        self.step = step
+        self.i = (self.I / self.F) ** 0.5
+        self.lamda = self.l / self.i
+        print("Коэффииент лямбда для графика", self.lamda)
+        self.n_line = np.linspace(0, 60)
+        self.psi = psi
+        self.sigma_2 = sigma_2
+        self.m = m
+
+        self.nu = self.B * self.delta * self.step / (self.F * self.l)
+        self.B_bandage = 0.5 * ((self.avg_d / l) - 1) * ((self.nu + 1 / 2) / (self.nu + 1 / 3)) + np.sin(
+            np.deg2rad(self.bettay)) ** 2
+        self.f_a0 = self.static_frequency(1) * 0.8
+        self.f_a1 = self.static_frequency(1) * 6
+        self.f_b0 = self.static_frequency(1) * 4.2
+        self.min_line, self.max_line = self.min_max(self.to_dynamic_frequency(self.f_a0, self.n_line))
+        self.min_line1, self.max_line1 = self.min_max(self.to_dynamic_frequency(self.f_a1, self.n_line))
+        self.min_line2, self.max_line2 = self.min_max(self.to_dynamic_frequency(self.f_b0, self.n_line))
+
+    def tension_stress_root_func(self, x):
+        return 0.5 * self.density * (x ** 2) * self.avg_d * self.l
+
+    def tension_stress(self, x):
+        self.r_root = (self.avg_d - self.l) / 2
+        self.constant_part = self.density * (self.angular_speed ** 2)
+        self.left = self.r_root * (self.l - x)
+        self.right = 0.5 * ((self.l ** 2) - (x ** 2))
+        return self.constant_part * (self.left + self.right)
+
+    def tension_stress_plot(self):
+        y = np.linspace(0, self.l, 100)
+
+        fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        ax.plot(self.tension_stress(y) / MPa, y)
+        ax.set_xlabel("Напряжения растяжения, МПа")
+        ax.set_ylabel("Координаты сечения вдоль высоты лопатки, м")
+        ax.grid()
+
+    def bending_stress(self):
+        self.num = self.G0 * self.H0 * self.eta_oi * self.l
+        self.den = 2 * self.u * self.e * self.z2 * self.Wmin
+        return self.num / self.den
+
+    def sigma_r(self, r):
+        self.first = (self.r2 ** 2 / (self.r2 ** 2 - self.r1 ** 2)) * (1 - (self.r1 ** 2) / (r ** 2)) * self.sigma_2
+        self.second = ((self.r2 ** 2 - r ** 2) * self.r1 ** 2) * self.sigma_1 / (
+                    (self.r2 ** 2 - self.r1 ** 2) * (r ** 2))
+        self.brackets = self.r2 ** 2 + self.r1 ** 2 - (self.r1 ** 2 * self.r2 ** 2) / r ** 2 - r ** 2
+        self.third = (3 + self.nu) * self.brackets * self.density * self.angular_speed ** 2
+        return self.first - self.second + self.third
+
+    def sigma_theta(self, r):
+        self.first = (self.r2 ** 2 / (self.r2 ** 2 - self.r1 ** 2)) * (1 + (self.r1 ** 2) / (r ** 2)) * self.sigma_2
+        self.second = ((self.r2 ** 2 + r ** 2) * self.r1 ** 2) * self.sigma_1 / (
+                    (self.r2 ** 2 - self.r1 ** 2) * (r ** 2))
+        self.innet_brackets = (1 + 3 * self.nu) * (r ** 2) / (3 + self.nu)
+        self.brackets = self.r2 ** 2 + self.r1 ** 2 + (
+                    (self.r1 ** 2) * ((self.r2 ** 2)) / (r ** 2)) - self.innet_brackets
+        self.third = ((3 + self.nu) / 8) * self.brackets * self.density * self.angular_speed ** 2
+        return self.first - self.second + self.third
+
+    def get_critical_Hz(self):
+        self.EI = self.E * np.pi * (self.d ** 4 - self.d_0 ** 4) / 64
+        self.P_11 = (np.pi ** 2 / self.L ** 2) * (self.EI / (self.rotor_mass / self.L_rotor)) ** 0.5
+        self.P_12 = 4 * self.P_11
+        self.delta_op = 0.5 * 10 ** -9
+        self.C_horizontal = 0.5 * 10 ** 9
+        self.delta_opor = self.delta_op + 1 / self.C_horizontal
+        self.P_21 = (2 / (self.rotor_mass * self.delta_opor)) ** 0.5
+        self.P_22 = (self.L / self.L_rotor) * 3 ** 0.5 * self.P_21
+        self.P_1 = 1 / ((1 / self.P_11 ** 2) + (1 / self.P_21 ** 2)) ** 0.5
+        self.P_2 = 1 / ((1 / self.P_12 ** 2) + (1 / self.P_22 ** 2)) ** 0.5
+        return self.P_1 / (2 * math.pi), self.P_2 / (2 * math.pi)
+
+    def static_frequency(self, j):
+        self._m = {1: 0.56,
+                   2: 3.51,
+                   3: 9.82}
+        self.first = self.psi * self._m[j] / (self.l ** 2)
+        self.second = ((self.E * self.I) / (self.density * self.F)) ** 0.5
+        return self.first * self.second
+
+    def to_dynamic_frequency(self, f, n):
+        self.root = (1 + self.B_bandage * (n / f) ** 2) ** 0.5
+        return f * self.root
+
+    def min_max(self, f):
+        self.delta_ = 0.05
+        return f * (1 - self.delta_), f * (1 + self.delta_)
+
+    def k_line(self, k):
+        return k * self.n_line
+
+    def get_report(self, max_stress, max_stress_disk):
+        res = ''
+        res += f"Напряжение изгиба последней лопатки: {round(self.bending_stress() / MPa, 3)}\n"
+        res +=f"Напряжение в корневом сечении последней лопатки: {round(self.tension_stress_root_func(self.angular_speed) / MPa, 3)}\n"
+        res +=f"Запас прочности последней лопатки: {round(max_stress / self.tension_stress(0), 3)}\n"
+        res +=f"Радиальные напряжения в диске последней ступени: {round(self.sigma_r(self.r1) / MPa, 3)}, {round(self.sigma_r(self.r2) / MPa, 3)}\n"
+        res +=f"Тангенсальные напряжения в диске последней ступени: {self.sigma_theta(self.r1) / MPa}, {self.sigma_theta(self.r2) / MPa}\n"
+        res +=f"Коэффициент запаса прочности диска:  {round(max_stress_disk / self.sigma_theta(self.r1), 3)}\n"
+        res +=f"Критические частоты вращения ротора {self.get_critical_Hz()}\n"
+        return res
+
+    def plot_vibro(self):
+        fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+
+        ax.plot(self.n_line, self.to_dynamic_frequency(self.f_a0, self.n_line), label='$f_{a0}$')
+        ax.plot(self.n_line, self.to_dynamic_frequency(self.f_a1, self.n_line), label='$f_{a1}$')
+        ax.plot(self.n_line, self.to_dynamic_frequency(self.f_b0, self.n_line), label='$f_{b0}$')
+        ax.fill_between(self.n_line, y1=self.min_line, y2=self.max_line, alpha=0.5)
+        ax.fill_between(self.n_line, y1=self.min_line1, y2=self.max_line1, alpha=0.5)
+        ax.fill_between(self.n_line, y1=self.min_line2, y2=self.max_line2, alpha=0.5)
+
+        ax.plot(self.n_line, self.k_line(1), label=f'k={1}')
+        ax.plot(self.n_line, self.k_line(2), label=f'k={2}')
+        ax.plot(self.n_line, self.k_line(3), label=f'k={3}')
+        ax.plot(self.n_line, self.k_line(4), label=f'k={4}')
+        ax.plot(self.n_line, self.k_line(5), label=f'k={5}')
+        ax.plot(self.n_line, self.k_line(6), label=f'k={6}')
+
+        ax.plot(self.n_line, self.k_line(12), label=f'k={12}')
+
+        ax.plot(self.n_line, self.k_line(20), label=f'k={20}')
+        ax.plot(self.n_line, self.k_line(21), label=f'k={21}')
+        ax.plot(self.n_line, self.k_line(22), label=f'k={22}')
+        ax.plot(self.n_line, self.k_line(23), label=f'k={23}')
+        ax.plot(self.n_line, self.k_line(24), label=f'k={24}')
+        ax.plot(self.n_line, self.k_line(25), label=f'k={25}')
+        ax.plot(self.n_line, self.k_line(26), label=f'k={26}')
+
+        ax.plot(self.n_line, self.k_line(31), label=f'k={31}')
+        ax.plot(self.n_line, self.k_line(32), label=f'k={32}')
+        ax.plot(self.n_line, self.k_line(33), label=f'k={33}')
+        ax.plot(self.n_line, self.k_line(34), label=f'k={34}')
+        ax.plot(self.n_line, self.k_line(35), label=f'k={35}')
+        ax.plot(self.n_line, self.k_line(36), label=f'k={36}')
+
+        ax.set_ylabel("n,об/мин")
+        ax.set_xlabel("f,Гц")
+        ax.grid()
+        ax.legend()
+        ax.set_title("Вибрационная диаграмма,\n (нумирация коэффициента кратности снизу вверх)")
+        plt.show()

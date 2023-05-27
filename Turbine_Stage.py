@@ -31,8 +31,7 @@ class Turbine_Stage:
     constants
     '''
     mu1_comma = 0.97
-    alpha1_e = 15
-    delta = 0.003
+    delta = 0.0035
     xi_vs = 0
     
     mu_a = 0.5
@@ -49,10 +48,22 @@ class Turbine_Stage:
     class Array:
         
         class Standart_Arrays(Enum):
-            c_90_15_a = Array_Data([13, 17], [70, 120], [0.72, 0.87], [0, 0.85], 51.5 * mm, 0.45 * cm ** 3, [0.982, -0.005], [0.98, -0.008])
-            r_30_21_a = Array_Data([19, 24], [25, 40], [0.58, 0.68], [0, 0.90], 25.6 * mm, 2.34 * cm ** 3, [0.965, -0.01], [0.96, -0.014])
+            c_90_15_a = Array_Data([13, 17], [70, 120], [0.70, 0.87], [0, 0.85], 
+                                   51.2 * mm, 0.45, [0.982, -0.005], [0.98, -0.008])
+            c_90_12_a = Array_Data([10, 14], [70, 120], [0.72, 0.87], [0, 0.85], 
+                                   52.5 * mm, 0.575, [0.982, -0.005], [0.98, -0.008])
+            r_30_21_a = Array_Data([19, 24], [25, 40], [0.58, 0.68], [0, 0.90], 
+                                   25.6 * mm, 0.234, [0.965, -0.01], [0.96, -0.014])
+            r_21_18_r = Array_Data([16, 20], [19, 24], [0.6, 0.7], [1.3, 1.6], 
+                                   20 * mm, 0.142, [0.965, -0.01], [0.96, -0.014])
+            r_26_17_a = Array_Data([15, 19], [23, 35], [0.6, 0.7], [0, 0.95], 
+                                   25.7 * mm, 0.225, [0.965, -0.01], [0.96, -0.014])
+            r_23_14_a = Array_Data([12, 16], [20, 30], [0.6, 0.75], [0, 0.95], 
+                                   25.9 * mm, 0.39, [0.965, -0.01], [0.96, -0.014])
+            
         
         def __init__(self, profile_name, topt_choosen, e_opt, d, l, M):
+
             self.bounds = Turbine_Stage.Array.Standart_Arrays[profile_name].value
             self.l = l
             self.M = M
@@ -101,7 +112,8 @@ class Turbine_Stage:
     d - m
     n - s^-1
     '''
-    def __init__(self, G, p0, t0, c0, H0, degree_of_reactivity, d, n, a0):
+    def __init__(self, G, p0, t0, c0, H0, degree_of_reactivity, d, n, a0, alpha1_e):
+        self.alpha1_e = alpha1_e
         self.G = G
         
         self.point_0 = gas(P=p0 * unit, T=to_kelvin(t0))
@@ -122,7 +134,7 @@ class Turbine_Stage:
         
         self.F1 = self.G * self.point_1t.v / self.mu1_comma / self.c1_t
         self.el1 = self.F1 / math.pi / self.d / math.sin(math.radians(self.alpha1_e))
-        self.e_opt = 5 * math.sqrt(self.el1)
+        self.e_opt = 4 * math.sqrt(self.el1)
     
     '''setting nozzle array'''
     def set_nozzle_array(self, array_name, topt_choosen, l, M):
@@ -152,6 +164,8 @@ class Turbine_Stage:
         self.alpha2 = math.degrees(math.atan(math.sin(math.radians(self.working_array.speed_angle_out)) / (math.cos(math.radians(self.working_array.speed_angle_out)) - self.u / self.w2)))
         self.betta2 = self.working_array.speed_angle_out
         self.delta_H_r = self.w2t ** 2 / 2 * (1 - self.working_array.speed_coeff ** 2) / kJ
+        self.point2 = gas(P = self.point_2t.P, h = self.point_2t.h + self.delta_H_r)
+
     
     def calc_efficiency(self) -> str:
         
@@ -183,10 +197,11 @@ class Turbine_Stage:
         self.H_i = self.E0 - self.delta_H_c - self.delta_H_partial - self.delta_H_r - self.delta_H_tr - self.delta_H_vs * (1 - self.xi_vs) - self.delta_H_y
         self.etta_oi = self.H_i / self.E0
         self.N_i = self.G * self.H_i * kJ
-        self.sigma_twist = (self.G * self.H0 * self.etta_ol * self.working_array.l) / (2 * self.u * self.working_array.z * self.working_array.bounds.W_min * self.e_opt)
+        self.sigma_twist = (self.G * self.H0 * self.etta_ol * 100 * self.working_array.l) / (2 * self.u * self.working_array.z * self.working_array.bounds.W_min * self.e_opt)
         self.b2_new = self.working_array.bounds.b * math.sqrt(self.sigma_twist / self.sigma_twist_max)
         self.bb = 2 * math.pi * self.n
-        self.sigma_stretch = 5 * self.bb ** 2 * self.d * self.working_array.l
+        self.sigma_stretch = 0.5 * self.bb ** 2 * self.d * self.working_array.l * self.degree_of_reactivity
+        self.point3 = gas(P = self.point2.P, h = self.point2.h + self.delta_H_tr + self.delta_H_partial + self.delta_H_y + 2 * self .delta_H_vs)
 
         return res
         
@@ -252,3 +267,21 @@ class Turbine_Stage:
 
         plt.show()
 
+    def get_report(self, point0t):
+        k = 3
+        res = ''
+        res += 'Параметры точек \n'
+        res += f'Точка 0т: {round(point0t.P, k)} МПА, {round(point0t.T-273.15, k)} К\n'
+        res += f'Точка 0: {round(self.point_0.P,k)} МПА, {round(self.point_0.T-273.15, k)} С\n'
+        res += f'Точка 1: {round(self.point1.P, k)} МПА, {round(self.point1.T-273.15, k)} С\n'
+        res += f'Точка 2: {round(self.point2.P, k)} МПА, {round(self.point2.T-273.15, k)} С\n'
+        res += f'Точка 3: {round(self.point3.P, k)} МПА, {round(self.point3.T-273.15, k)} С\n\n'
+        res += 'Параметры треугольника скоростей\n'
+        res += f'a1 = {round(self.alpha1,k)}, a2 = {round(self.alpha2,k)}, b1 = {round(self.betta1,k)}, b2 = {round(self.betta2,k)}\n'
+        res += f'c1 = {round(self.c1,k)}м/с, w1 = {round(self.w1,k)}м/с, c2 = {round(self.c2,k)}м/с, w2 = {round(self.w2,k)}м/с\n\n'
+        res += f'Электрическая мощность\nN = {round(self.N_i/1e6,k)}МВТ\n\n'
+        res += f'КПД\netta = {round(self.etta_oi*100,k)}\n\n'
+        res+='Прочностной расчет\n'
+        res+=f'Напряжение изгиба: {round(self.sigma_twist, k)} МПА, растяжения: {round(self.sigma_stretch, k)} МПА'
+
+        return res

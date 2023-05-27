@@ -30,13 +30,10 @@ class Array_Data:
         def params_in_bounds(self, speed_angle_e, speed_angle, M):
             res = ''
             if speed_angle_e < min(self.speed_angle_e_bounds) or speed_angle_e > max(self.speed_angle_e_bounds):
-                res = res + ' speed angle e '
-                print(self.speed_angle_e_bounds, speed_angle_e)
+                res = res + f'\n speed angle e: bounds: {self.speed_angle_e_bounds}, val: {speed_angle_e} '
             if speed_angle < min(self.speed_angle_bounds) or speed_angle > max(self.speed_angle_bounds):
-                res = res + ' speed angle '
-                print(self.speed_angle_bounds, speed_angle)
+                res = res + f'\n speed angle: bounds: {self.speed_angle_bounds}, val: {speed_angle} '
             if M < min(self.M_bounds) or M > max(self.M_bounds): 
-                res = res + ' mach '
-                print(self.M_bounds, M)
+                res = res + f'\n mach bounds: {self.M_bounds}, val: {M} '
             return res
 

@@ -57,7 +57,7 @@ veernost_1=37
         self.blade_length_1 = upper / lower
         self.blade_length_2 = self.blade_length_1 + overlapping
 
-        print(self.avg_diam_1 / self.blade_length_1, veernost_1)
+
         assert np.isclose(self.avg_diam_1 / self.blade_length_1, veernost_1, rtol=0.01)
 
         self.root_diameter = self.avg_diam_1 - self.blade_length_2
@@ -95,7 +95,7 @@ veernost_1=37
 
         self.reheat_factor = 4.8 * 10 ** (-4) * (1 - efficiency) * self.full_heat_drop * (n_stages - 1) / n_stages
 
-        print(self.full_heat_drop * (1 + self.reheat_factor) / self.mean_heat_drop)
+
         assert round(self.full_heat_drop * (1 + self.reheat_factor) / self.mean_heat_drop) == n_stages
 
         self.bias = self.full_heat_drop * (1 + self.reheat_factor) - np.sum(self.actual_heat_drops)
@@ -120,4 +120,24 @@ veernost_1=37
 
     def equation_to_solve(self, x):
         return x ** 2 + x * self.root_diameter - self.avg_diam_1 * self.blade_length_2 * self.point_z.v / self.point_2.v
-
+    
+    def get_report(self, veernost_1, n_stages):
+        res = 'Сравнение приближений\n'
+        res += 'Веерность:\n'
+        res += f'{round(self.avg_diam_1 / self.blade_length_1, 3)}, {veernost_1}\n'
+        res += 'Число ступеней:\n'
+        res += f'{round(self.full_heat_drop * (1 + self.reheat_factor) / self.mean_heat_drop, 3)}, {n_stages}\n\n'
+        res += f'Корневой диметр: {self.root_diameter} м\n'
+        res += f'Средний диаметр: {sum(self.diameters)/len(self.diameters)} м'
+        
+        return res
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
